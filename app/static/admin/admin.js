@@ -217,6 +217,61 @@
     }
   });
 
+  document.querySelector('#download-backup').addEventListener('click', async () => {
+    try {
+      const response = await fetch(`${apiRoot}/backup`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: basicAuthorization(credentials.username, credentials.password)
+        }
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result?.error?.message || `Backup failed (${response.status}).`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'ezpos-license-backup.json';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showNotice('Signed backup downloaded. Store it somewhere secure.');
+    } catch (error) {
+      showNotice(error.message, true);
+    }
+  });
+
+  document.querySelector('#backup-file').addEventListener('change', async (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!window.confirm(
+      'Restore this signed backup? Missing records will be added; existing records will be kept.'
+    )) {
+      input.value = '';
+      return;
+    }
+    try {
+      const backup = JSON.parse(await file.text());
+      const result = await request('/backup', {
+        method: 'POST',
+        body: JSON.stringify(backup)
+      });
+      const restored = Object.entries(result.restored)
+        .map(([name, count]) => `${count} ${name.replaceAll('_', ' ')}`)
+        .join(', ');
+      showNotice(`Backup restored. Added: ${restored}. Existing records were preserved.`);
+      await refresh();
+    } catch (error) {
+      showNotice(error instanceof SyntaxError
+        ? 'The selected file is not valid JSON.'
+        : error.message, true);
+    } finally {
+      input.value = '';
+    }
+  });
+
   createForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const submit = createForm.querySelector('button[type="submit"]');

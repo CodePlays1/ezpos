@@ -61,6 +61,14 @@
           </table>
         </div>
       </section>
+      <section class="panel">
+        <div class="panel-heading"><div><h2>Backup and restore</h2><p>Export a signed JSON backup regularly so you can restore records after a free-service restart.</p></div></div>
+        <div class="backup-controls">
+          <button id="download-backup" class="button secondary" type="button">Download backup</button>
+          <label class="backup-upload">Restore signed backup<input id="backup-file" type="file" accept=".json,application/json"></label>
+        </div>
+        <p class="hint">The backup contains sensitive customer, activation, and device data. Store it securely and do not edit it; modified files are rejected. Restore adds missing records, keeps existing records, and never moves a trial start later. It cannot recover changes made after the backup was downloaded.</p>
+      </section>
     </section>
   </main>
   <script src="/admin-assets/admin.js" defer></script>

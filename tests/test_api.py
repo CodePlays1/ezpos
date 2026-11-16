@@ -420,6 +420,83 @@ def test_admin_can_reset_customer_device_binding(client):
     assert activate("b" * 64).status_code == 200
 
 
+def test_signed_backup_restores_records_and_rejects_edits(
+    client, issue, settings_factory
+):
+    fingerprint = _fingerprint(client)
+    assert client.post(
+        "/api/v1/license/trial/status",
+        json=_device(fingerprint),
+    ).json()["valid"] is True
+    token, _payload = issue(fingerprint)
+    assert _activate(client, token).status_code == 200
+    created = client.post(
+        "/api/v1/admin/licenses",
+        headers={"X-Admin-Key": TEST_ADMIN_KEY},
+        json={"username": "backup-customer", "customer_name": "Backup Customer"},
+    )
+    assert created.status_code == 200
+
+    backup_response = client.get(
+        "/api/v1/admin/backup",
+        headers={"X-Admin-Key": TEST_ADMIN_KEY},
+    )
+    assert backup_response.status_code == 200
+    backup = backup_response.json()
+    assert backup["format"] == "ezpos-license-backup"
+    assert backup["data"]["activations"]
+    assert backup["data"]["trial_registrations"]
+    assert backup["data"]["customer_licenses"]
+
+    edited = {**backup, "data": {**backup["data"]}}
+    edited["data"]["trial_registrations"] = [
+        {
+            **backup["data"]["trial_registrations"][0],
+            "started_at": "2099-01-01T00:00:00Z",
+        }
+    ]
+    rejected = client.post(
+        "/api/v1/admin/backup",
+        headers={"X-Admin-Key": TEST_ADMIN_KEY},
+        json=edited,
+    )
+    assert rejected.status_code == 422
+    assert rejected.json()["error"]["code"] == "BACKUP_SIGNATURE_INVALID"
+
+    restore_app = create_app(settings_factory(db_name="restored.db"))
+    with TestClient(restore_app) as restore_client:
+        restored = restore_client.post(
+            "/api/v1/admin/backup",
+            headers={"X-Admin-Key": TEST_ADMIN_KEY},
+            json=backup,
+        )
+        assert restored.status_code == 200
+        assert restored.json()["restored"] == {
+            "activations": 1,
+            "customer_licenses": 1,
+            "trial_registrations": 1,
+            "revoked_licenses": 0,
+        }
+        assert _status(restore_client, fingerprint).json()["valid"] is True
+        assert restore_client.post(
+            "/api/v1/license/trial/status",
+            json=_device(fingerprint),
+        ).json()["reason"] == "LICENSE_ACTIVATED"
+
+        repeated = restore_client.post(
+            "/api/v1/admin/backup",
+            headers={"X-Admin-Key": TEST_ADMIN_KEY},
+            json=backup,
+        )
+        assert repeated.status_code == 200
+        assert repeated.json()["restored"] == {
+            "activations": 0,
+            "customer_licenses": 0,
+            "trial_registrations": 0,
+            "revoked_licenses": 0,
+        }
+
+
 def test_admin_license_creation_requires_admin_key(client):
     response = client.post(
         "/api/v1/admin/licenses",

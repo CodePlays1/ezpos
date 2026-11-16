@@ -4,6 +4,12 @@ FastAPI service for issuing, activating, and checking lifetime, single-device li
 
 The seven-day trial is server-authoritative: `POST /api/v1/license/trial/status` records its start against the device fingerprint and returns the fixed expiry. Unactivated POS installations must reach the API at startup and every two minutes; local trial timestamps are not used to grant access.
 
+## Back up free-instance data
+
+The admin dashboard includes **Download backup** and **Restore signed backup**. Download a backup after creating licenses or making other important changes, and keep it somewhere private. It contains customer information, activation data, device fingerprints, and trial records; it is signed to detect edits but is not encrypted. Do not share it or commit it to source control.
+
+Restore accepts an unmodified backup signed by a key trusted by the service. It adds missing licenses and activations, merges trial records using the earliest recorded start time, and preserves existing records and revocations. It does not roll back or replace records already present. A backup only contains data from when it was downloaded, so changes made after that download cannot be recovered. Backups also need to be verified with the public key matching the signing key that created them.
+
 ## Render deployment
 
 Create a Render Blueprint from the repository using `render.yaml`. It deploys this directory as a Python web service, provisions PostgreSQL, and uses `/health/ready` as the health check. Set `POS_LICENSE_PUBLIC_KEY_B64` in the Render dashboard to the **public** base64 key printed by `scripts/generate_keys.py`. The API refuses to start without a trusted public key. Configure any custom domains in `POS_LICENSE_ALLOWED_HOSTS` as a JSON string array, for example `["licenses.example.com"]`.
