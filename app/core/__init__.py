@@ -1,0 +1,1 @@
+"""Core licensing primitives."""

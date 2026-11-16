@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{{ product_name }} License Admin</title>
+  <link rel="stylesheet" href="/admin-assets/admin.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/admin"><span class="mark">EZ</span><span><strong>{{ product_name }}</strong><small>LICENSE ADMIN</small></span></a>
+    <span class="secure-label">Protected administration</span>
+  </header>
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow">CUSTOMER ACCESS</p><h1>License dashboard</h1><p>Create customer accounts and one-device lifetime license codes.</p></div>
+      <button id="refresh" class="button secondary" type="button" disabled>Refresh</button>
+    </section>
+    <section id="setup-panel" class="panel" hidden>
+      <div class="panel-heading"><div><h2>Set up the dashboard</h2><p>Create your admin sign-in and unlock the existing license signing key.</p></div></div>
+      <form id="setup-form" class="create-form">
+        <label>One-time setup code<input name="setup_token" id="setup-token" autocomplete="off" required></label>
+        <label>Admin username<input name="username" minlength="3" maxlength="60" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,59}" autocomplete="username" required></label>
+        <label>Admin password (12+ characters)<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>
+        <label>Signing key password<input name="signing_key_password" type="password" minlength="12" maxlength="256" autocomplete="current-password" required></label>
+        <button class="button primary" type="submit">Set up dashboard</button>
+      </form>
+      <p class="hint">Generate the signing key with your chosen password using <code>python scripts\generate_keys.py</code>, then enter that same password here. On this computer, the one-time setup code is filled in automatically. On Render, copy it from the server logs. The signing key password is used in memory only.</p>
+    </section>
+    <section id="login-panel" class="panel login-panel" hidden>
+      <form id="login-form">
+        <label>Admin username<input id="admin-username" autocomplete="username" required></label>
+        <label>Admin password<input id="admin-password" type="password" autocomplete="current-password" required></label>
+        <label id="unlock-label">Signing key password<input id="signing-password" type="password" autocomplete="off"></label>
+        <button class="button primary" type="submit">Sign in</button>
+      </form>
+      <p class="hint">Your admin password is stored as a secure hash. Signing key password is not saved.</p>
+    </section>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <section id="workspace" hidden>
+      <section class="panel">
+        <div class="panel-heading"><div><h2>Create a customer license</h2><p>The activation code is shown only once. Deliver it securely to the customer.</p></div></div>
+        <form id="create-form" class="create-form">
+          <label>Username<input name="username" minlength="3" maxlength="60" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,59}" autocomplete="off" required></label>
+          <label>Customer name<input name="customer_name" maxlength="255" required></label>
+          <label>Email (optional)<input name="customer_email" type="email" maxlength="320"></label>
+          <button class="button primary" type="submit">Create license</button>
+        </form>
+        <div id="new-code" class="new-code" hidden>
+          <div><strong>New license code — copy it now</strong><code id="code-value"></code></div>
+          <button id="copy-code" class="button secondary" type="button">Copy code</button>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-heading"><div><h2>Customer licenses</h2><p>Lifetime licenses are bound to the first device activated with their code.</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Username</th><th>Customer</th><th>License ID</th><th>Device</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody id="license-rows"><tr><td colspan="7" class="empty">Sign in to view licenses.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="/admin-assets/admin.js" defer></script>
+</body>
+</html>
