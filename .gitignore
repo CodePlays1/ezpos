@@ -12,6 +12,7 @@ data/*
 keys/private/*
 !keys/private/.gitkeep
 keys/public/*
+!keys/public/*.pem
 !keys/public/.gitkeep
 
 *.db
