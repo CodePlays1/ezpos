@@ -13,6 +13,7 @@ from app.core.crypto import (
     canonical_json,
     generate_keypair,
     key_id_for_private_key,
+    load_private_key_b64,
     sign_token,
 )
 from app.core.exceptions import (
@@ -113,6 +114,50 @@ def test_keyring_loads_pem_directory_and_base64(tmp_path, private_key):
 def test_keyring_rejects_empty_configuration(tmp_path):
     with pytest.raises(KeyRingError):
         KeyRing.load(directory=tmp_path / "missing")
+
+
+def test_load_private_key_b64_accepts_pem_and_der():
+    private_key, _ = generate_keypair()
+    expected = private_key.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    encryption = serialization.BestAvailableEncryption(b"secret")
+
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=encryption,
+    )
+    der = private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=encryption,
+    )
+
+    for encoded in (base64.b64encode(pem), base64.b64encode(der)):
+        loaded = load_private_key_b64(encoded.decode(), password="secret")
+        assert (
+            loaded.private_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PrivateFormat.Raw,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+            == expected
+        )
+
+
+def test_load_private_key_b64_rejects_wrong_password():
+    private_key, _ = generate_keypair()
+    der = private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"secret"),
+    )
+
+    with pytest.raises(KeyRingError):
+        load_private_key_b64(base64.b64encode(der).decode(), password="wrong")
 
 
 def test_verified_payload_is_the_signed_json(private_key):

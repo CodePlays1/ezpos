@@ -296,15 +296,23 @@ def load_private_key_b64(
         raise KeyRingError(
             "The configured signing private key is not valid base64."
         ) from exc
-    try:
-        key = serialization.load_pem_private_key(
-            data, password=password.encode("utf-8")
-        )
-    except (TypeError, ValueError) as exc:
+    password_bytes = password.encode("utf-8") if password else None
+    key = None
+    last_error: Exception | None = None
+    for loader in (
+        serialization.load_pem_private_key,
+        serialization.load_der_private_key,
+    ):
+        try:
+            key = loader(data, password=password_bytes)
+            break
+        except (TypeError, ValueError) as exc:
+            last_error = exc
+    if key is None:
         raise KeyRingError(
             "The configured signing private key is invalid or its password "
             "is incorrect."
-        ) from exc
+        ) from last_error
     if not isinstance(key, Ed25519PrivateKey):
         raise KeyRingError("The configured signing key is not Ed25519.")
     return key
