@@ -188,7 +188,7 @@ def test_load_configured_private_key_from_file(tmp_path):
     )
 
     loaded = load_configured_private_key(
-        b64_value=None, file=key_path, password="secret"
+        b64_value="truncated-or-invalid", file=key_path, password="secret"
     )
     assert key_id_for_private_key(loaded) == key_id_for_private_key(private_key)
 
