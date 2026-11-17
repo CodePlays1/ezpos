@@ -59,6 +59,53 @@ def test_status_before_activation(client):
     assert len(body["device"]["fingerprint"]) == 64
 
 
+def test_device_can_recover_its_active_license_without_activation_code(client, issue):
+    fingerprint = _fingerprint(client)
+    token, payload = issue(fingerprint)
+    assert _activate(client, token, fingerprint).status_code == 200
+
+    recovered = client.post(
+        "/api/v1/license/recover",
+        json=_device(fingerprint),
+    )
+    assert recovered.status_code == 200
+    body = recovered.json()
+    assert body["activated"] is True
+    assert body["valid"] is True
+    assert body["license_key"] == token
+    assert body["device"]["fingerprint"] == fingerprint
+
+    other_device = client.post(
+        "/api/v1/license/recover",
+        json=_device("b" * 64),
+    )
+    assert other_device.status_code == 200
+    assert other_device.json()["activated"] is False
+    assert other_device.json()["license_key"] is None
+
+
+def test_device_cannot_recover_a_revoked_license(client, issue):
+    fingerprint = _fingerprint(client)
+    token, payload = issue(fingerprint)
+    assert _activate(client, token, fingerprint).status_code == 200
+    revoked = client.post(
+        "/api/v1/admin/revoke",
+        headers={"X-Admin-Key": TEST_ADMIN_KEY},
+        json={"license_id": payload.license_id, "reason": "Test revocation"},
+    )
+    assert revoked.status_code == 200
+
+    recovered = client.post(
+        "/api/v1/license/recover",
+        json=_device(fingerprint),
+    )
+    assert recovered.status_code == 200
+    assert recovered.json()["activated"] is True
+    assert recovered.json()["valid"] is False
+    assert recovered.json()["reason"] == "LICENSE_REVOKED"
+    assert recovered.json()["license_key"] is None
+
+
 def test_trial_starts_on_server_and_cannot_be_reset_by_client(client):
     fingerprint = _fingerprint(client)
     first = client.post(

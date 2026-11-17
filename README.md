@@ -44,6 +44,7 @@ On first start, a one-time dashboard setup code is written to the server log and
 - `POST /api/v1/activations`: verify and record a pre-signed license token for the supplied client fingerprint.
 - `POST /api/v1/activations/claim`: activate a dashboard-created username/license code and return its signed, device-bound token.
 - `POST /api/v1/license/verify`: online signature, device, and revocation check.
+- `POST /api/v1/license/recover`: recover the signed token for an existing activation bound to the presented device fingerprint.
 - `GET /api/v1/license/status?fingerprint=...&platform=...`: activation status for a client identity.
 - `POST /api/v1/license/trial/status`: start or check the seven-day trial for a device fingerprint.
 - `GET /api/v1/version`: service/product and trusted key IDs.

@@ -134,6 +134,15 @@ class LicenseStatusResponse(BaseModel):
     checked_at: datetime
 
 
+class LicenseRecoveryResponse(BaseModel):
+    activated: bool
+    valid: bool
+    reason: str | None = None
+    license_key: str | None = None
+    device: DeviceSummary
+    checked_at: datetime
+
+
 class LicenseVerifyResponse(BaseModel):
     valid: Literal[True] = True
     license: LicenseSummary

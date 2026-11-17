@@ -20,6 +20,7 @@ from app.db.models import TrialRegistration
 from app.schemas.activation import ClientDevice, LicenseTokenRequest
 from app.schemas.license import (
     DeviceSummary,
+    LicenseRecoveryResponse,
     LicenseStatusResponse,
     LicenseSummary,
     LicenseVerifyResponse,
@@ -33,6 +34,29 @@ router = APIRouter(
     dependencies=[Depends(enforce_rate_limit)],
 )
 TRIAL_DURATION = timedelta(days=7)
+
+
+@router.post("/recover", response_model=LicenseRecoveryResponse)
+async def recover_activation(
+    payload: ClientDevice,
+    session: AsyncSession = Depends(get_session),
+    service: LicenseService = Depends(get_license_service),
+) -> LicenseRecoveryResponse:
+    device = DeviceIdentity(
+        fingerprint=payload.fingerprint,
+        short_id=format_short_id(payload.fingerprint),
+        platform=payload.platform,
+    )
+    outcome = await service.status(session, device)
+    activation = outcome.activation
+    return LicenseRecoveryResponse(
+        activated=activation is not None,
+        valid=outcome.valid,
+        reason=outcome.reason,
+        license_key=activation.token if outcome.valid and activation else None,
+        device=DeviceSummary(**device.public_dict()),
+        checked_at=utcnow(),
+    )
 
 
 @router.post("/trial/status", response_model=TrialStatusResponse)
