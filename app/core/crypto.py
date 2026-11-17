@@ -332,7 +332,7 @@ def load_configured_private_key(
     file: Path | str | None,
     password: str | None,
 ) -> Ed25519PrivateKey:
-    if file:
+    if file and (Path(file).exists() or not b64_value):
         return load_private_key(file, password=password)
     if b64_value:
         return load_private_key_b64(b64_value, password=password or "")

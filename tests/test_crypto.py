@@ -193,6 +193,29 @@ def test_load_configured_private_key_from_file(tmp_path):
     assert key_id_for_private_key(loaded) == key_id_for_private_key(private_key)
 
 
+def test_load_configured_private_key_falls_back_to_b64(tmp_path):
+    private_key, _ = generate_keypair()
+    der = private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"secret"),
+    )
+
+    loaded = load_configured_private_key(
+        b64_value=base64.b64encode(der).decode(),
+        file=tmp_path / "missing.pem",
+        password="secret",
+    )
+    assert key_id_for_private_key(loaded) == key_id_for_private_key(private_key)
+
+
+def test_load_configured_private_key_reports_missing_file(tmp_path):
+    with pytest.raises(KeyRingError, match="Unable to read private key"):
+        load_configured_private_key(
+            b64_value=None, file=tmp_path / "missing.pem", password="secret"
+        )
+
+
 def test_load_private_key_b64_rejects_wrong_password():
     private_key, _ = generate_keypair()
     der = private_key.private_bytes(
