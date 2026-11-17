@@ -23,7 +23,7 @@ from app.config import Settings, get_settings
 from app.core.crypto import (
     KeyRing,
     key_id_for_private_key,
-    load_private_key_b64,
+    load_configured_private_key,
 )
 from app.core.exceptions import KeyRingError
 from app.core.rate_limit import RateLimiter
@@ -46,9 +46,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "production does not load public keys from files."
             )
         keyring = KeyRing.load(public_key_b64=settings.public_key_b64)
-        if not settings.signing_private_key_b64:
+        if not (
+            settings.signing_private_key_b64 or settings.signing_private_key_file
+        ):
             raise KeyRingError(
-                "POS_LICENSE_SIGNING_PRIVATE_KEY_B64 is required in production."
+                "POS_LICENSE_SIGNING_PRIVATE_KEY_B64 or "
+                "POS_LICENSE_SIGNING_PRIVATE_KEY_FILE is required in production."
             )
         if not settings.signing_key_password:
             raise KeyRingError(
@@ -61,10 +64,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             public_key_b64=settings.public_key_b64,
         )
     signing_private_key = None
-    if settings.signing_private_key_b64 and settings.signing_key_password:
-        signing_private_key = load_private_key_b64(
-            settings.signing_private_key_b64,
-            password=settings.signing_key_password or "",
+    if settings.signing_key_password and (
+        settings.signing_private_key_b64 or settings.signing_private_key_file
+    ):
+        signing_private_key = load_configured_private_key(
+            b64_value=settings.signing_private_key_b64,
+            file=settings.signing_private_key_file,
+            password=settings.signing_key_password,
         )
         if key_id_for_private_key(signing_private_key) not in keyring.key_ids:
             raise KeyRingError(

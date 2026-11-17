@@ -13,6 +13,7 @@ from app.core.crypto import (
     canonical_json,
     generate_keypair,
     key_id_for_private_key,
+    load_configured_private_key,
     load_private_key_b64,
     sign_token,
 )
@@ -146,6 +147,50 @@ def test_load_private_key_b64_accepts_pem_and_der():
             )
             == expected
         )
+
+
+def test_load_private_key_b64_tolerates_wrapped_value():
+    private_key, _ = generate_keypair()
+    der = private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"secret"),
+    )
+    encoded = base64.b64encode(der).decode()
+    wrapped = "\n".join(encoded[i : i + 64] for i in range(0, len(encoded), 64))
+
+    loaded = load_private_key_b64(wrapped, password="secret")
+    assert key_id_for_private_key(loaded) == key_id_for_private_key(private_key)
+
+
+def test_load_private_key_b64_reports_truncated_value():
+    private_key, _ = generate_keypair()
+    der = private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"secret"),
+    )
+    truncated = base64.b64encode(der).decode()[:64]
+
+    with pytest.raises(KeyRingError, match="truncated"):
+        load_private_key_b64(truncated, password="secret")
+
+
+def test_load_configured_private_key_from_file(tmp_path):
+    private_key, _ = generate_keypair()
+    key_path = tmp_path / "license-signing-key.pem"
+    key_path.write_bytes(
+        private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.BestAvailableEncryption(b"secret"),
+        )
+    )
+
+    loaded = load_configured_private_key(
+        b64_value=None, file=key_path, password="secret"
+    )
+    assert key_id_for_private_key(loaded) == key_id_for_private_key(private_key)
 
 
 def test_load_private_key_b64_rejects_wrong_password():

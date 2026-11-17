@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     public_key_file: Path | None = None
     public_key_b64: str | None = None
     signing_private_key_b64: str | None = None
+    signing_private_key_file: Path | None = None
     signing_key_password: str | None = None
     revocation_file: Path | None = None
 
@@ -63,7 +64,9 @@ class Settings(BaseSettings):
     admin_enabled: bool = False
     admin_api_key: str | None = None
 
-    @field_validator("public_key_file", "revocation_file", mode="before")
+    @field_validator(
+        "public_key_file", "signing_private_key_file", "revocation_file", mode="before"
+    )
     @classmethod
     def _blank_path_to_none(cls, value: object) -> object:
         if value is None or (isinstance(value, str) and not value.strip()):

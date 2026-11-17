@@ -11,7 +11,7 @@ from app.api.dependencies import enforce_rate_limit, get_session, require_admin
 from app.core.admin_auth import hash_admin_password
 from app.core.crypto import (
     key_id_for_private_key,
-    load_private_key_b64,
+    load_configured_private_key,
 )
 from app.core.exceptions import AdminUnauthorizedError, KeyRingError, LicenseError
 from app.db import repository
@@ -32,18 +32,16 @@ def _load_signing_key(
     settings = request.app.state.settings
     try:
         if settings.environment == "production":
-            private_key = load_private_key_b64(
-                settings.signing_private_key_b64 or "",
-                password=settings.signing_key_password or "",
-            )
-        elif settings.signing_private_key_b64:
-            private_key = load_private_key_b64(
-                settings.signing_private_key_b64, password=password or ""
+            private_key = load_configured_private_key(
+                b64_value=settings.signing_private_key_b64,
+                file=settings.signing_private_key_file,
+                password=settings.signing_key_password,
             )
         else:
-            raise KeyRingError(
-                "Configure POS_LICENSE_SIGNING_PRIVATE_KEY_B64 and "
-                "POS_LICENSE_SIGNING_KEY_PASSWORD."
+            private_key = load_configured_private_key(
+                b64_value=settings.signing_private_key_b64,
+                file=settings.signing_private_key_file,
+                password=password or settings.signing_key_password,
             )
     except (KeyRingError, ValueError) as exc:
         raise LicenseError(

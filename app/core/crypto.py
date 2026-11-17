@@ -291,7 +291,7 @@ def load_private_key_b64(
     value: str, *, password: str
 ) -> Ed25519PrivateKey:
     try:
-        data = base64.b64decode(value, validate=True)
+        data = base64.b64decode("".join(value.split()), validate=True)
     except (binascii.Error, ValueError) as exc:
         raise KeyRingError(
             "The configured signing private key is not valid base64."
@@ -309,13 +309,38 @@ def load_private_key_b64(
         except (TypeError, ValueError) as exc:
             last_error = exc
     if key is None:
+        truncated = len(data) < 120 and b"-----BEGIN" not in data
+        hint = (
+            f" The decoded key is only {len(data)} bytes, so the value appears "
+            "truncated; re-enter the full single-line base64 value or set "
+            "POS_LICENSE_SIGNING_PRIVATE_KEY_FILE."
+            if truncated
+            else ""
+        )
         raise KeyRingError(
             "The configured signing private key is invalid or its password "
-            "is incorrect."
+            f"is incorrect.{hint}"
         ) from last_error
     if not isinstance(key, Ed25519PrivateKey):
         raise KeyRingError("The configured signing key is not Ed25519.")
     return key
+
+
+def load_configured_private_key(
+    *,
+    b64_value: str | None,
+    file: Path | str | None,
+    password: str | None,
+) -> Ed25519PrivateKey:
+    if b64_value:
+        return load_private_key_b64(b64_value, password=password or "")
+    if file:
+        return load_private_key(file, password=password)
+    raise KeyRingError(
+        "Configure POS_LICENSE_SIGNING_PRIVATE_KEY_B64 or "
+        "POS_LICENSE_SIGNING_PRIVATE_KEY_FILE with "
+        "POS_LICENSE_SIGNING_KEY_PASSWORD."
+    )
 
 
 def encode_private_key(
