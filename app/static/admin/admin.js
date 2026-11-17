@@ -261,6 +261,7 @@
   setupForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(setupForm));
+    if (!values.signing_key_password) delete values.signing_key_password;
     try {
       const response = await fetch(`${apiRoot}/setup`, {
         method: 'POST',
@@ -418,6 +419,9 @@
       signingReady = status.signing_ready;
       if (status.setup_required) {
         setupPanel.hidden = false;
+        const signingLabel = document.querySelector('#setup-signing-label');
+        signingLabel.hidden = signingReady;
+        signingLabel.querySelector('input').required = !signingReady;
         const tokenInput = document.querySelector('#setup-token');
         if (status.setup_token) tokenInput.value = status.setup_token;
         else tokenInput.placeholder = 'Enter the one-time setup code from the server logs';

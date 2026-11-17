@@ -15,7 +15,7 @@ class AdminSetupRequest(BaseModel):
         pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]{2,59}$",
     )
     password: str = Field(min_length=12, max_length=128)
-    signing_key_password: str = Field(min_length=1, max_length=256)
+    signing_key_password: str | None = Field(default=None, min_length=1, max_length=256)
 
 
 class AdminUnlockRequest(BaseModel):

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import base64
 
+from cryptography.hazmat.primitives import serialization
 from conftest import TEST_ADMIN_KEY, TEST_SIGNING_PASSWORD
 from fastapi.testclient import TestClient
+import pytest
 
 from app.core.crypto import b64url_encode, canonical_json
+from app.core.exceptions import KeyRingError
 from app.main import create_app
 
 
@@ -47,6 +50,40 @@ def test_health_and_version(client, key_id):
     assert version.status_code == 200
     assert version.json()["product"] == "PharmaPOS"
     assert key_id in version.json()["key_ids"]
+
+
+def test_production_uses_environment_key_without_reading_public_key_directory(
+    settings_factory,
+):
+    settings = settings_factory()
+    public_key_path = next(settings.public_key_dir.glob("*.pem"))
+    public_key = serialization.load_pem_public_key(public_key_path.read_bytes())
+    raw_public_key = public_key.public_bytes(
+        serialization.Encoding.Raw,
+        serialization.PublicFormat.Raw,
+    )
+    production_settings = settings.model_copy(
+        update={
+            "environment": "production",
+            "public_key_dir": settings.public_key_dir / "must-not-be-read",
+            "public_key_file": None,
+            "public_key_b64": base64.b64encode(raw_public_key).decode("ascii"),
+        }
+    )
+
+    with TestClient(create_app(production_settings)) as production_client:
+        version = production_client.get("/api/v1/version")
+        assert version.status_code == 200
+        assert version.json()["key_ids"] == [public_key_path.stem]
+
+    missing_key = settings.model_copy(
+        update={
+            "environment": "production",
+            "public_key_b64": None,
+        }
+    )
+    with pytest.raises(KeyRingError, match="POS_LICENSE_PUBLIC_KEY_B64"):
+        create_app(missing_key)
 
 
 def test_status_before_activation(client):

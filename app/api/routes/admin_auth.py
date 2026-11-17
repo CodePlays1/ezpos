@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hmac
-from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import APIRouter, Depends, Request
@@ -12,7 +11,6 @@ from app.api.dependencies import enforce_rate_limit, get_session, require_admin
 from app.core.admin_auth import hash_admin_password
 from app.core.crypto import (
     key_id_for_private_key,
-    load_private_key,
     load_private_key_b64,
 )
 from app.core.exceptions import AdminUnauthorizedError, KeyRingError, LicenseError
@@ -28,21 +26,25 @@ def _is_local_request(request: Request) -> bool:
     return host in {"127.0.0.1", "::1", "localhost", "testclient", "testserver"}
 
 
-def _load_signing_key(request: Request, password: str) -> Ed25519PrivateKey:
+def _load_signing_key(
+    request: Request, password: str | None = None
+) -> Ed25519PrivateKey:
     settings = request.app.state.settings
     try:
-        if settings.signing_private_key_b64:
+        if settings.environment == "production":
             private_key = load_private_key_b64(
-                settings.signing_private_key_b64, password=password
+                settings.signing_private_key_b64 or "",
+                password=settings.signing_key_password or "",
+            )
+        elif settings.signing_private_key_b64:
+            private_key = load_private_key_b64(
+                settings.signing_private_key_b64, password=password or ""
             )
         else:
-            private_path = (
-                Path(__file__).resolve().parents[3]
-                / "keys"
-                / "private"
-                / "license-signing-key.pem"
+            raise KeyRingError(
+                "Configure POS_LICENSE_SIGNING_PRIVATE_KEY_B64 and "
+                "POS_LICENSE_SIGNING_KEY_PASSWORD."
             )
-            private_key = load_private_key(private_path, password=password)
     except (KeyRingError, ValueError) as exc:
         raise LicenseError(
             "The signing key could not be unlocked. Check its password and "

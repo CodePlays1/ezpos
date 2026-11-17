@@ -18,15 +18,15 @@
       <button id="refresh" class="button secondary" type="button" disabled>Refresh</button>
     </section>
     <section id="setup-panel" class="panel" hidden>
-      <div class="panel-heading"><div><h2>Set up the dashboard</h2><p>Create your admin sign-in and unlock the existing license signing key.</p></div></div>
+      <div class="panel-heading"><div><h2>Set up the dashboard</h2><p>Create your admin sign-in. The signing key is loaded from server environment variables.</p></div></div>
       <form id="setup-form" class="create-form">
         <label>One-time setup code<input name="setup_token" id="setup-token" autocomplete="off" required></label>
         <label>Admin username<input name="username" minlength="3" maxlength="60" pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,59}" autocomplete="username" required></label>
         <label>Admin password (12+ characters)<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label>
-        <label>Signing key password<input name="signing_key_password" type="password" minlength="12" maxlength="256" autocomplete="current-password" required></label>
+        <label id="setup-signing-label">Signing key password<input name="signing_key_password" type="password" minlength="12" maxlength="256" autocomplete="current-password"></label>
         <button class="button primary" type="submit">Set up dashboard</button>
       </form>
-      <p class="hint">Generate the signing key with your chosen password using <code>python scripts\generate_keys.py</code>, then enter that same password here. On this computer, the one-time setup code is filled in automatically. On Render, copy it from the server logs. The signing key password is used in memory only.</p>
+      <p class="hint">On Render, the signing private key and password come from protected environment variables. On this computer, the one-time setup code is filled in automatically; on Render, copy it from the server logs.</p>
     </section>
     <section id="login-panel" class="panel login-panel" hidden>
       <form id="login-form">

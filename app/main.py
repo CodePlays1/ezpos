@@ -39,11 +39,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings)
 
-    keyring = KeyRing.load(
-        directory=settings.public_key_dir,
-        file=settings.public_key_file,
-        public_key_b64=settings.public_key_b64,
-    )
+    if settings.environment == "production":
+        if not settings.public_key_b64:
+            raise KeyRingError(
+                "POS_LICENSE_PUBLIC_KEY_B64 is required in production; "
+                "production does not load public keys from files."
+            )
+        keyring = KeyRing.load(public_key_b64=settings.public_key_b64)
+        if not settings.signing_private_key_b64:
+            raise KeyRingError(
+                "POS_LICENSE_SIGNING_PRIVATE_KEY_B64 is required in production."
+            )
+        if not settings.signing_key_password:
+            raise KeyRingError(
+                "POS_LICENSE_SIGNING_KEY_PASSWORD is required in production."
+            )
+    else:
+        keyring = KeyRing.load(
+            directory=settings.public_key_dir,
+            file=settings.public_key_file,
+            public_key_b64=settings.public_key_b64,
+        )
     signing_private_key = None
     if settings.signing_private_key_b64 and settings.signing_key_password:
         signing_private_key = load_private_key_b64(
