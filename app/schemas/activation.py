@@ -125,6 +125,11 @@ class RevokeLicenseResponse(BaseModel):
     revoked_at: datetime
 
 
+class RestoreLicenseResponse(BaseModel):
+    license_id: str
+    restored: bool
+
+
 class DeactivateLicenseRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

@@ -277,6 +277,57 @@ def test_admin_lists_and_deactivates(client, issue):
     assert reactivated.json()["already_activated"] is False
 
 
+def test_admin_can_restore_a_revoked_customer_license(client):
+    headers = {"X-Admin-Key": TEST_ADMIN_KEY}
+    created = client.post(
+        "/api/v1/admin/licenses",
+        headers=headers,
+        json={"username": "restore-customer", "customer_name": "Restore Customer"},
+    ).json()
+    activation = client.post(
+        "/api/v1/activations/claim",
+        headers={},
+        json={
+            "username": created["username"],
+            "license_code": created["activation_code"],
+            "device": _device(),
+        },
+    )
+    assert activation.status_code == 200
+    fingerprint = activation.json()["device"]["fingerprint"]
+
+    revoked = client.post(
+        f"/api/v1/admin/licenses/{created['license_id']}/revoke",
+        headers=headers,
+        json={
+            "license_id": created["license_id"],
+            "reason": "Test revocation",
+        },
+    )
+    assert revoked.status_code == 200
+    assert _status(client, fingerprint).json()["reason"] == "LICENSE_REVOKED"
+
+    restored = client.post(
+        f"/api/v1/admin/licenses/{created['license_id']}/restore",
+        headers=headers,
+    )
+    assert restored.status_code == 200
+    assert restored.json() == {
+        "license_id": created["license_id"],
+        "restored": True,
+    }
+    status = _status(client, fingerprint).json()
+    assert status["activated"] is True
+    assert status["valid"] is True
+
+    repeated = client.post(
+        f"/api/v1/admin/licenses/{created['license_id']}/restore",
+        headers=headers,
+    )
+    assert repeated.status_code == 409
+    assert repeated.json()["error"]["code"] == "LICENSE_NOT_REVOKED"
+
+
 def test_admin_dashboard_serves_license_management_page(client):
     response = client.get("/admin")
     assert response.status_code == 200

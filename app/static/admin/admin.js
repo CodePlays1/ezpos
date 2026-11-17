@@ -104,6 +104,13 @@
         revoke.textContent = 'Revoke';
         revoke.addEventListener('click', () => revokeLicense(license.license_id));
         actions.append(revoke);
+      } else if (license.status === 'revoked') {
+        const restore = document.createElement('button');
+        restore.type = 'button';
+        restore.className = 'button secondary';
+        restore.textContent = 'Restore';
+        restore.addEventListener('click', () => restoreLicense(license.license_id));
+        actions.append(restore);
       }
       row.append(actions);
       rows.append(row);
@@ -127,13 +134,26 @@
   }
 
   async function revokeLicense(licenseId) {
-    if (!window.confirm('Revoke this lifetime license? This cannot be undone.')) return;
+    if (!window.confirm('Revoke this lifetime license? You can restore it later from the dashboard.')) return;
     try {
       await request(`/licenses/${encodeURIComponent(licenseId)}/revoke`, {
         method: 'POST',
         body: JSON.stringify({ license_id: licenseId, reason: 'Revoked by administrator' })
       });
       showNotice('License revoked.');
+      await refresh();
+    } catch (error) {
+      showNotice(error.message, true);
+    }
+  }
+
+  async function restoreLicense(licenseId) {
+    if (!window.confirm('Restore this revoked license? Its existing device binding will remain in place.')) return;
+    try {
+      await request(`/licenses/${encodeURIComponent(licenseId)}/restore`, {
+        method: 'POST'
+      });
+      showNotice('License restored. Its existing device binding is unchanged.');
       await refresh();
     } catch (error) {
       showNotice(error.message, true);

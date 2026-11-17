@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import APIRouter, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,6 +44,7 @@ from app.schemas.activation import (
     CustomerLicenseResponse,
     DeactivateLicenseRequest,
     DeactivateLicenseResponse,
+    RestoreLicenseResponse,
     RevokeLicenseRequest,
     RevokeLicenseResponse,
 )
@@ -199,6 +200,31 @@ async def revoke_customer_license(
         reason=revoked.reason,
         revoked_at=revoked.revoked_at,
     )
+
+
+@router.post(
+    "/licenses/{license_id}/restore",
+    response_model=RestoreLicenseResponse,
+)
+async def restore_customer_license(
+    license_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> RestoreLicenseResponse:
+    license = await repository.get_customer_license_by_id(session, license_id)
+    if license is None:
+        raise LicenseNotActivatedError("The customer license was not found.")
+    if license.status != "revoked":
+        raise LicenseError(
+            "The customer license is not revoked.",
+            code="LICENSE_NOT_REVOKED",
+            status_code=409,
+        )
+    license.status = "active"
+    await session.execute(
+        delete(RevokedLicense).where(RevokedLicense.license_id == license_id)
+    )
+    await session.commit()
+    return RestoreLicenseResponse(license_id=license_id, restored=True)
 
 
 @router.post(
