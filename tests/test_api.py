@@ -320,6 +320,17 @@ def test_admin_can_restore_a_revoked_customer_license(client):
     assert status["activated"] is True
     assert status["valid"] is True
 
+    reactivated = client.post(
+        "/api/v1/activations/claim",
+        json={
+            "username": created["username"],
+            "license_code": created["activation_code"],
+            "device": _device(fingerprint),
+        },
+    )
+    assert reactivated.status_code == 200
+    assert reactivated.json()["license"]["license_id"] == created["license_id"]
+
     repeated = client.post(
         f"/api/v1/admin/licenses/{created['license_id']}/restore",
         headers=headers,
