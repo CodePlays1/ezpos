@@ -10,6 +10,7 @@
   const workspace = document.querySelector('#workspace');
   const notice = document.querySelector('#notice');
   const rows = document.querySelector('#license-rows');
+  const activationRows = document.querySelector('#activation-rows');
   const newCode = document.querySelector('#new-code');
   const codeValue = document.querySelector('#code-value');
   let credentials = null;
@@ -117,9 +118,63 @@
     }
   }
 
+  function renderActivations(activations) {
+    activationRows.replaceChildren();
+    if (!activations.length) {
+      const row = document.createElement('tr');
+      const cell = addCell(row, 'No device activations recorded.');
+      cell.colSpan = 7;
+      cell.className = 'empty';
+      activationRows.append(row);
+      return;
+    }
+    for (const activation of activations) {
+      const row = document.createElement('tr');
+      addCell(row, activation.license_id);
+      addCell(row, activation.customer_name);
+      addCell(row, activation.device_short_id);
+      addCell(row, activation.key_id);
+      const status = addCell(row, '');
+      const badge = document.createElement('span');
+      badge.className = `status${activation.revoked ? ' revoked' : ''}`;
+      badge.textContent = activation.revoked ? 'revoked' : activation.status;
+      status.append(badge);
+      addCell(row, new Date(activation.last_verified_at).toLocaleString());
+      const actions = document.createElement('td');
+      actions.className = 'row-actions';
+      if (activation.revoked) {
+        const restore = document.createElement('button');
+        restore.type = 'button';
+        restore.className = 'button secondary';
+        restore.textContent = 'Restore';
+        restore.addEventListener('click', () => restoreLicense(activation.license_id));
+        actions.append(restore);
+      } else {
+        const reset = document.createElement('button');
+        reset.type = 'button';
+        reset.className = 'button secondary';
+        reset.textContent = 'Reset device';
+        reset.addEventListener('click', () => resetActivation(activation.license_id));
+        actions.append(reset);
+        const revoke = document.createElement('button');
+        revoke.type = 'button';
+        revoke.className = 'button secondary';
+        revoke.textContent = 'Revoke';
+        revoke.addEventListener('click', () => revokeActivation(activation.license_id));
+        actions.append(revoke);
+      }
+      row.append(actions);
+      activationRows.append(row);
+    }
+  }
+
   async function refresh() {
-    const licenses = await request('/licenses');
+    const [licenses, activations] = await Promise.all([
+      request('/licenses'),
+      request('/activations')
+    ]);
     renderLicenses(licenses);
+    renderActivations(activations);
   }
 
   async function resetDevice(licenseId) {
@@ -127,6 +182,34 @@
     try {
       await request(`/licenses/${encodeURIComponent(licenseId)}/deactivate`, { method: 'POST' });
       showNotice('Device binding reset. The customer may activate the license again.');
+      await refresh();
+    } catch (error) {
+      showNotice(error.message, true);
+    }
+  }
+
+  async function resetActivation(licenseId) {
+    if (!window.confirm('Reset this device binding? The license can then be activated again.')) return;
+    try {
+      await request('/deactivate', {
+        method: 'POST',
+        body: JSON.stringify({ license_id: licenseId })
+      });
+      showNotice('Device binding reset.');
+      await refresh();
+    } catch (error) {
+      showNotice(error.message, true);
+    }
+  }
+
+  async function revokeActivation(licenseId) {
+    if (!window.confirm('Revoke this license? You can restore it later from this list.')) return;
+    try {
+      await request('/revoke', {
+        method: 'POST',
+        body: JSON.stringify({ license_id: licenseId, reason: 'Revoked by administrator' })
+      });
+      showNotice('License revoked.');
       await refresh();
     } catch (error) {
       showNotice(error.message, true);

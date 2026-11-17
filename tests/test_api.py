@@ -339,10 +339,44 @@ def test_admin_can_restore_a_revoked_customer_license(client):
     assert repeated.json()["error"]["code"] == "LICENSE_NOT_REVOKED"
 
 
+def test_admin_can_find_and_restore_direct_device_activation(client, issue):
+    fingerprint = _fingerprint(client)
+    token, payload = issue(fingerprint)
+    activation = _activate(client, token, fingerprint)
+    assert activation.status_code == 200
+
+    headers = {"X-Admin-Key": TEST_ADMIN_KEY}
+    listed = client.get("/api/v1/admin/activations", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json()[0]["license_id"] == payload.license_id
+    assert listed.json()[0]["device_fingerprint"] == fingerprint
+    assert listed.json()[0]["revoked"] is False
+
+    revoked = client.post(
+        "/api/v1/admin/revoke",
+        headers=headers,
+        json={"license_id": payload.license_id, "reason": "Test revocation"},
+    )
+    assert revoked.status_code == 200
+    revoked_listing = client.get("/api/v1/admin/activations", headers=headers)
+    assert revoked_listing.json()[0]["revoked"] is True
+
+    restored = client.post(
+        f"/api/v1/admin/licenses/{payload.license_id}/restore",
+        headers=headers,
+    )
+    assert restored.status_code == 200
+    assert _status(client, fingerprint).json()["valid"] is True
+
+    reactivated = _activate(client, token, fingerprint)
+    assert reactivated.status_code == 200
+
+
 def test_admin_dashboard_serves_license_management_page(client):
     response = client.get("/admin")
     assert response.status_code == 200
     assert "License dashboard" in response.text
+    assert "Device activations" in response.text
 
 
 def test_admin_creates_license_and_customer_activates_with_username_and_code(client):

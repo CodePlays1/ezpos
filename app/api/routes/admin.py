@@ -71,6 +71,13 @@ async def list_activations(
     session: AsyncSession = Depends(get_session),
 ) -> list[AdminActivationResponse]:
     activations = await repository.list_activations(session)
+    revoked_ids = set(
+        (
+            await session.scalars(
+                select(RevokedLicense.license_id)
+            )
+        ).all()
+    )
     return [
         AdminActivationResponse(
             activation_id=activation.id,
@@ -87,6 +94,7 @@ async def list_activations(
             activated_at=activation.activated_at,
             last_verified_at=activation.last_verified_at,
             status=activation.status,
+            revoked=activation.license_id in revoked_ids,
         )
         for activation in activations
     ]
@@ -211,15 +219,17 @@ async def restore_customer_license(
     session: AsyncSession = Depends(get_session),
 ) -> RestoreLicenseResponse:
     license = await repository.get_customer_license_by_id(session, license_id)
-    if license is None:
-        raise LicenseNotActivatedError("The customer license was not found.")
-    if license.status != "revoked":
+    revocation = await session.get(RevokedLicense, license_id)
+    if license is None and revocation is None:
+        raise LicenseNotActivatedError("The license was not found.")
+    if license is not None and license.status != "revoked" and revocation is None:
         raise LicenseError(
             "The customer license is not revoked.",
             code="LICENSE_NOT_REVOKED",
             status_code=409,
         )
-    license.status = "active"
+    if license is not None:
+        license.status = "active"
     await session.execute(
         delete(RevokedLicense).where(RevokedLicense.license_id == license_id)
     )

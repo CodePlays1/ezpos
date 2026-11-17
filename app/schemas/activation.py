@@ -109,6 +109,7 @@ class AdminActivationResponse(BaseModel):
     activated_at: datetime
     last_verified_at: datetime
     status: str
+    revoked: bool = False
 
 
 class RevokeLicenseRequest(BaseModel):
