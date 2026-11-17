@@ -326,14 +326,35 @@ def load_private_key_b64(
     return key
 
 
+def _resolve_key_file(file: Path | str) -> Path:
+    path = Path(file)
+    if path.exists():
+        return path
+    project_root = Path(__file__).resolve().parents[2]
+    search_dirs = [Path.cwd(), project_root, Path("/etc/secrets")]
+    for directory in search_dirs:
+        candidate = directory / path.name
+        if candidate.exists():
+            return candidate
+    for directory in search_dirs:
+        if not directory.is_dir():
+            continue
+        pem_files = sorted(directory.glob("*.pem"))
+        if len(pem_files) == 1:
+            return pem_files[0]
+    return path
+
+
 def load_configured_private_key(
     *,
     b64_value: str | None,
     file: Path | str | None,
     password: str | None,
 ) -> Ed25519PrivateKey:
-    if file and (Path(file).exists() or not b64_value):
-        return load_private_key(file, password=password)
+    if file:
+        resolved = _resolve_key_file(file)
+        if resolved.exists() or not b64_value:
+            return load_private_key(resolved, password=password)
     if b64_value:
         return load_private_key_b64(b64_value, password=password or "")
     raise KeyRingError(

@@ -193,6 +193,25 @@ def test_load_configured_private_key_from_file(tmp_path):
     assert key_id_for_private_key(loaded) == key_id_for_private_key(private_key)
 
 
+def test_load_configured_private_key_finds_file_in_service_root(tmp_path, monkeypatch):
+    private_key, _ = generate_keypair()
+    (tmp_path / "license-signing-key.pem").write_bytes(
+        private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.BestAvailableEncryption(b"secret"),
+        )
+    )
+    monkeypatch.chdir(tmp_path)
+
+    loaded = load_configured_private_key(
+        b64_value=None,
+        file="/etc/secrets/license-signing-key.pem",
+        password="secret",
+    )
+    assert key_id_for_private_key(loaded) == key_id_for_private_key(private_key)
+
+
 def test_load_configured_private_key_falls_back_to_b64(tmp_path):
     private_key, _ = generate_keypair()
     der = private_key.private_bytes(
