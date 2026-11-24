@@ -47,6 +47,7 @@ def make_settings(
         signing_private_key_b64=base64.b64encode(
             encode_private_key(private_key, password=TEST_SIGNING_PASSWORD)
         ).decode("ascii"),
+        signing_private_key_file=None,
         signing_key_password=TEST_SIGNING_PASSWORD,
         revocation_file=revocation_file,
         product="PharmaPOS",

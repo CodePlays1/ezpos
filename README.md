@@ -12,7 +12,7 @@ Restore accepts an unmodified backup signed by a key trusted by the service. It 
 
 ## Render deployment
 
-Create a Render Blueprint from the repository using `render.yaml`. It deploys this directory as a Python web service, provisions PostgreSQL, and uses `/health/ready` as the health check. Set `POS_LICENSE_PUBLIC_KEY_B64` in the Render dashboard to the **public** base64 key printed by `scripts/generate_keys.py`. The API refuses to start without a trusted public key. Configure any custom domains in `POS_LICENSE_ALLOWED_HOSTS` as a JSON string array, for example `["licenses.example.com"]`.
+Create a Render Blueprint from the repository using `render.yaml`. It deploys this directory as a single Python web service on a paid plan with a 1 GB persistent disk mounted at `/var/data`, and uses `/health/live` as the health check. Set `POS_LICENSE_PUBLIC_KEY_B64` in the Render dashboard to the **public** base64 key printed by `scripts/generate_keys.py`. The API refuses to start without a trusted public key. Configure any custom domains in `POS_LICENSE_ALLOWED_HOSTS` as a JSON string array, for example `["licenses.example.com"]`.
 
 Set `POS_LICENSE_PUBLIC_KEY_B64` to the public key printed by `scripts/generate_keys.py`. Configure `POS_LICENSE_SIGNING_PRIVATE_KEY_B64` as a Render secret containing the base64-encoded encrypted Ed25519 private key (PEM or DER). Long values must be pasted as a single line; if your editor wraps the base64, either join the lines or upload the encrypted key as a Render Secret File and set `POS_LICENSE_SIGNING_PRIVATE_KEY_FILE` to its path instead. The private key must match the public key. The dashboard submits its encryption password to unlock the key; the app does not persist the password or store it in the browser. The unlocked private key remains in server-process memory until restart.
 
@@ -20,11 +20,11 @@ For signing-key rotation, commit all old and new public PEMs under `keys/public`
 
 Open `https://<your-service>/admin`. On first use, retrieve the one-time setup code from the service logs, then create the dashboard username/password and unlock the signing key with its encryption password. Keep the setup code private; it is invalidated after successful setup. The dashboard stores the admin password as a salted scrypt hash. On later server starts, sign in and unlock the signing key again if prompted. Create customer accounts and deliver activation codes securely. The dashboard's Device activations table lists every device binding, including activations not created from a dashboard customer account; admins can reset, revoke, or restore those licenses there. Customer activation codes are shown only when first created or reset; they are not stored in readable form and cannot be retrieved later. Restoring removes the server-side revocation and preserves the existing activation and device binding.
 
-The default in-process rate limiter and SQLite configuration are suitable for local development. The Render blueprint uses PostgreSQL, one web process, and the configured single-instance limiter. Before adding multiple web instances, replace the limiter with a shared store and configure trusted proxy handling. Keep PostgreSQL backups enabled for production.
+The default in-process rate limiter and SQLite configuration are suitable for local development. The Render blueprint uses one web process with SQLite on a persistent disk and the configured single-instance limiter. Before adding multiple web instances, replace the limiter with a shared store and configure trusted proxy handling. Download signed backups from `/admin` regularly so production data can be restored if the disk is lost.
 
 ## Local development
 
-From `PosBackend`:
+From `PosBackend`, copy `.env.example` to `.env` and fill in the real values; `Settings` loads `.env` automatically. The configured `POS_LICENSE_SIGNING_PRIVATE_KEY_FILE=/etc/secrets/license-signing-key.pem` resolves to `keys/private/license-signing-key.pem` locally and to the mounted Render Secret File in production.
 
 ```powershell
 python -m venv .venv
@@ -64,3 +64,12 @@ python scripts\issue_license.py --device-fingerprint <64-character-fingerprint> 
 ```
 
 Use the signing key password when prompted and deliver the token to the customer. Licenses are lifetime and limited to one device. The client must be online to activate initially; local signature verification supports subsequent offline use.
+
+## Render quick fix checklist
+
+1. Start command: `uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"` (the app must listen on `0.0.0.0:$PORT`, not `127.0.0.1:8765`).
+2. Upload the encrypted key as a **Secret File** named `license-signing-key.pem` (Render mounts it at `/etc/secrets/`).
+3. Set `POS_LICENSE_SIGNING_KEY_PASSWORD` and `POS_LICENSE_PUBLIC_KEY_B64` in Environment.
+4. `POS_LICENSE_ALLOWED_HOSTS` accepts `["ezpos.onrender.com"]` or `ezpos.onrender.com`.
+5. SQLite needs a persistent disk mounted at `/var/data`; otherwise data is lost on each deploy.
+6. Health check path: `/health/live`.

@@ -29,7 +29,7 @@ def load_private_key_interactive(private_key_path: Path):
             raise SystemExit(
                 "The private key is encrypted. Set LICENSE_PRIVATE_KEY_PASSWORD "
                 "or run this command interactively."
-            )
+            ) from None
         entered = getpass.getpass("Private key password: ")
         try:
             return load_private_key(private_key_path, password=entered)
@@ -40,7 +40,7 @@ def load_private_key_interactive(private_key_path: Path):
 def write_token_file(path: Path, token: str) -> None:
     from app.core.crypto import write_file_atomic
 
-    write_file_atomic(path, f"{token}\n".encode("utf-8"), mode=0o644)
+    write_file_atomic(path, f"{token}\n".encode(), mode=0o644)
 
 
 def private_key_password_from_environment() -> str | None:

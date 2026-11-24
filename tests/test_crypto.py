@@ -6,6 +6,7 @@ import json
 import pytest
 from cryptography.hazmat.primitives import serialization
 
+from app.core import crypto
 from app.core.crypto import (
     LICENSE_TOKEN_PREFIX,
     KeyRing,
@@ -42,7 +43,9 @@ def test_tampered_payload_is_rejected(private_key):
     keyring = KeyRing([private_key.public_key()])
     token = sign_token({"license_id": "POS-ABC123"}, private_key)
     prefix, _payload, signature = token.split(".")
-    forged = canonical_json({"license_id": "POS-EVIL99", "key_id": key_id_for_private_key(private_key)})
+    forged = canonical_json(
+        {"license_id": "POS-EVIL99", "key_id": key_id_for_private_key(private_key)}
+    )
     tampered = f"{prefix}.{b64url_encode(forged)}.{signature}"
 
     with pytest.raises(TokenSignatureError):
@@ -203,6 +206,29 @@ def test_load_configured_private_key_finds_file_in_service_root(tmp_path, monkey
         )
     )
     monkeypatch.chdir(tmp_path)
+
+    loaded = load_configured_private_key(
+        b64_value=None,
+        file="/etc/secrets/license-signing-key.pem",
+        password="secret",
+    )
+    assert key_id_for_private_key(loaded) == key_id_for_private_key(private_key)
+
+
+def test_finds_key_file_in_project_key_store(tmp_path, monkeypatch):
+    private_key, _ = generate_keypair()
+    key_store = tmp_path / "keys" / "private"
+    key_store.mkdir(parents=True)
+    (key_store / "license-signing-key.pem").write_bytes(
+        private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.BestAvailableEncryption(b"secret"),
+        )
+    )
+    monkeypatch.setattr(
+        crypto, "__file__", str(tmp_path / "app" / "core" / "crypto.py")
+    )
 
     loaded = load_configured_private_key(
         b64_value=None,

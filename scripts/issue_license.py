@@ -8,7 +8,12 @@ import json
 import sys
 from pathlib import Path
 
-from _common import PROJECT_ROOT, bootstrap, load_private_key_interactive, write_token_file
+from _common import (
+    PROJECT_ROOT,
+    bootstrap,
+    load_private_key_interactive,
+    write_token_file,
+)
 
 bootstrap()
 

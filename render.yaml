@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: ezpos
+    runtime: python
+    plan: starter
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*" --no-access-log
+    healthCheckPath: /health/live
+    disk:
+      name: ezpos-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: POS_LICENSE_ENVIRONMENT
+        value: production
+      - key: POS_LICENSE_DEBUG
+        value: "false"
+      - key: POS_LICENSE_ALLOWED_HOSTS
+        value: '["ezpos.onrender.com"]'
+      - key: POS_LICENSE_PRODUCT
+        value: PharmaPOS
+      - key: POS_LICENSE_DATABASE_URL
+        value: sqlite+aiosqlite:////var/data/licensing.db
+      - key: POS_LICENSE_SIGNING_PRIVATE_KEY_FILE
+        value: /etc/secrets/license-signing-key.pem
+      - key: POS_LICENSE_PUBLIC_KEY_B64
+        sync: false
+      - key: POS_LICENSE_SIGNING_KEY_PASSWORD
+        sync: false

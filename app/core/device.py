@@ -161,7 +161,7 @@ def _windows_volume_serial() -> str | None:
     try:
         import ctypes
 
-        drive = f"{os.environ.get('SystemDrive', 'C:')}\\"
+        drive = f"{os.environ.get('SYSTEMDRIVE', 'C:')}\\"
         serial = ctypes.c_ulong()
         ok = ctypes.windll.kernel32.GetVolumeInformationW(
             ctypes.c_wchar_p(drive),

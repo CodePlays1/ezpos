@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import contextlib
 import hashlib
 import json
 import os
@@ -177,7 +178,9 @@ class KeyRing:
             key_dir = Path(directory)
             if key_dir.exists():
                 if not key_dir.is_dir():
-                    raise KeyRingError(f"Public key directory is not a directory: {key_dir}")
+                    raise KeyRingError(
+                        f"Public key directory is not a directory: {key_dir}"
+                    )
                 for pem_path in sorted(key_dir.glob("*.pem")):
                     try:
                         data = pem_path.read_bytes()
@@ -331,12 +334,17 @@ def _resolve_key_file(file: Path | str) -> Path:
     if path.exists():
         return path
     project_root = Path(__file__).resolve().parents[2]
-    search_dirs = [Path.cwd(), project_root, Path("/etc/secrets")]
+    search_dirs = [
+        Path("/etc/secrets"),
+        Path.cwd(),
+        project_root,
+        project_root / "keys" / "private",
+    ]
     for directory in search_dirs:
         candidate = directory / path.name
         if candidate.exists():
             return candidate
-    for directory in search_dirs:
+    for directory in search_dirs[:3]:
         if not directory.is_dir():
             continue
         pem_files = sorted(directory.glob("*.pem"))
@@ -400,10 +408,8 @@ def write_file_atomic(path: Path | str, data: bytes, *, mode: int = 0o600) -> No
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(temporary, mode)
-        except OSError:
-            pass
         os.replace(temporary, target)
     finally:
         try:

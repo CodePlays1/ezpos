@@ -9,6 +9,8 @@ Production deployments should use:
 
 from __future__ import annotations
 
+import os
+
 import uvicorn
 
 from app.config import get_settings
@@ -19,8 +21,10 @@ def main() -> None:
     settings = get_settings()
     uvicorn.run(
         create_app(settings),
-        host=settings.host,
-        port=settings.port,
+        host="0.0.0.0" if os.environ.get("PORT") else settings.host,
+        port=int(os.environ.get("PORT", settings.port)),
+        proxy_headers=True,
+        forwarded_allow_ips="*",
         log_level=settings.log_level.lower(),
         log_config=None,
         access_log=False,

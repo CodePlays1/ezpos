@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .env
+fixtheissue.txt
+PosBackend.zip
 
 data/*
 !data/.gitkeep

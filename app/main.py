@@ -133,7 +133,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.setup_token = setup_token
 
     app.add_middleware(RequestContextMiddleware)
-    allowed_hosts = set(settings.allowed_hosts)
+    allowed_hosts = set(settings.allowed_hosts) | {"localhost", "127.0.0.1"}
     render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
     if render_hostname:
         allowed_hosts.add(render_hostname)

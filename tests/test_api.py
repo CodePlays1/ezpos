@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import base64
 
-from cryptography.hazmat.primitives import serialization
-from conftest import TEST_ADMIN_KEY, TEST_SIGNING_PASSWORD
-from fastapi.testclient import TestClient
 import pytest
+from conftest import TEST_ADMIN_KEY, TEST_SIGNING_PASSWORD
+from cryptography.hazmat.primitives import serialization
+from fastapi.testclient import TestClient
 
 from app.core.crypto import b64url_encode, canonical_json
 from app.core.exceptions import KeyRingError

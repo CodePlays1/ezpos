@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -51,10 +52,10 @@ class Settings(BaseSettings):
     device_fingerprint_salt: str = "pharmapos-device-fingerprint-v1"
     device_override: str | None = None
 
-    allowed_hosts: list[str] = Field(
+    allowed_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["127.0.0.1", "localhost"]
     )
-    cors_origins: list[str] = Field(default_factory=list)
+    cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
     enable_docs: bool | None = None
     log_level: str = "INFO"
     log_json: bool = True
@@ -72,6 +73,28 @@ class Settings(BaseSettings):
         if value is None or (isinstance(value, str) and not value.strip()):
             return None
         return value
+
+    @field_validator("allowed_hosts", "cors_origins", mode="before")
+    @classmethod
+    def _parse_list(cls, value: object) -> object:
+        """Accept JSON arrays, ``[a,b]`` with stripped quotes, or ``a,b``."""
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if not text:
+            return []
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except ValueError:
+            pass
+        text = text.strip("[]")
+        return [
+            part
+            for item in text.split(",")
+            if (part := item.strip().strip("'\""))
+        ]
 
     @field_validator("database_url", mode="before")
     @classmethod
